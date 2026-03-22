@@ -1,0 +1,112 @@
+name: Release solver
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y cmake rpm dpkg-dev
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build GoogleTest
+        run: cmake --build build/_deps/googletest-build
+      - name: Debug GoogleMock Artifacts
+        run: |
+          echo "Listing gmock artifacts in build/lib:"
+          ls build/lib || echo "lib directory does not exist"
+      - name: Build Solver
+        run: cmake --build build --target solver --config Release
+      - name: Install (Move Executable to bin)
+        run: cmake --install build
+      - name: Debug Install Directory
+        run: |
+          echo "Listing install directory:"
+          ls build/install || echo "install directory does not exist"
+      - name: Package
+        run: cd build && cpack -G DEB && cpack -G RPM && cpack -G ZIP
+      - name: Upload
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/*.deb
+            build/*.rpm
+            build/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: choco install cmake -y
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build GoogleTest
+        run: cmake --build build/_deps/googletest-build --config Release
+      - name: Debug GoogleMock Artifacts
+        run: |
+          echo "Listing gmock artifacts in build/lib/Release:"
+          if (Test-Path build/lib/Release) { Get-ChildItem build/lib/Release } else { Write-Host "lib directory does not exist" }
+      - name: Build Solver
+        run: cmake --build build --target solver --config Release
+      - name: Install (Move Executable to bin)
+        run: cmake --install build
+      - name: Debug Build Directories
+        run: |
+          echo "Listing build directory after install:"
+          if (Test-Path build) { Get-ChildItem build } else { Write-Host "build directory does not exist" }
+          echo "Listing install directory:"
+          if (Test-Path build/install) { Get-ChildItem build/install } else { Write-Host "install directory does not exist" }
+      - name: Package
+        run: |
+          cd build
+          cpack -G WIX || cpack -G NSIS
+      - name: Upload
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/*.msi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install CMake
+        run: brew install cmake
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+      - name: Build GoogleTest
+        run: cmake --build build/_deps/googletest-build
+      - name: Debug GoogleMock Artifacts
+        run: |
+          echo "Listing gmock artifacts in build/lib:"
+          ls build/lib || echo "lib directory does not exist"
+      - name: Build Solver
+        run: cmake --build build --target solver --config Release
+      - name: Install (Move Executable to bin)
+        run: cmake --install build
+      - name: Debug Install Directory
+        run: |
+          echo "Listing install directory:"
+          ls build/install || echo "install directory does not exist"
+      - name: Package
+        run: |
+          cd build
+          cpack -G DragNDrop
+      - name: Upload
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
