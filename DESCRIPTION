@@ -1,0 +1,4 @@
+This package provides the solver application for quadratic equations.
+It includes the following components:
+- solver_lib: library for solving quadratic equations
+- solver_application: command-line solver
